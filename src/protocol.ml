@@ -912,9 +912,32 @@ module Backend = struct
   end
 
   module CommandComplete = struct
-    type t = string
+    type t =
+      | Insert of {rows: int}
+      | Delete of {rows: int}
+      | Update of {rows: int}
+      | Select of {rows: int}
+      | Move of {rows: int}
+      | Fetch of {rows: int}
+      | Copy of {rows: int}
+      | Listen
+      | Set
+      (* This doesn't really belong here, but it makes things much simpler *)
+      | Empty_query
 
-    let consume_exn = Shared.consume_cstring_exn
+    let consume_exn iobuf =
+      let s = Shared.consume_cstring_exn iobuf in
+      match Stdlib.String.split_on_char ' ' s with
+      | ["INSERT"; _oid; num] -> Insert {rows = int_of_string num}
+      | ["DELETE"; num] -> Delete {rows = int_of_string num}
+      | ["UPDATE"; num] -> Update {rows = int_of_string num}
+      | ["SELECT"; num] -> Select {rows = int_of_string num}
+      | ["MOVE"; num] -> Move {rows = int_of_string num}
+      | ["FETCH"; num] -> Fetch {rows = int_of_string num}
+      | ["COPY"; num] -> Copy {rows = int_of_string num}
+      | ["LISTEN"] -> Listen
+      | ["SET"] -> Set
+      | _ -> failwithf "CommandComplete: bad command tag: %s"  s ()
 
     let consume iobuf =
       match consume_exn iobuf with

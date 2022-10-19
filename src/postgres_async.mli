@@ -104,6 +104,7 @@ include
    and type error := Error.t
    and type column_metadata := Column_metadata.t
    and type ssl_mode := Ssl_mode.t
+   and type command_tag := Protocol.Backend.CommandComplete.t
 
 (** The [Expert] module provides versions of all the same functions that instead return
     [Or_pgasync_error.t]s.
@@ -116,6 +117,7 @@ module Expert :
    and type error := Pgasync_error.t
    and type column_metadata := Column_metadata.t
    and type ssl_mode := Ssl_mode.t
+   and type command_tag := Protocol.Backend.CommandComplete.t
 
 module Private : sig
   val pgasync_error_of_error : Error.t -> Pgasync_error.t
