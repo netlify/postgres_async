@@ -8,6 +8,10 @@ module Frontend : sig
       }
   end
 
+  module CancelRequestMessage : sig
+    type t = Types.backend_key
+  end
+
   module PasswordMessage : sig
     type t =
       | Cleartext_or_md5_hex of string
@@ -65,6 +69,7 @@ module Frontend : sig
 
     val ssl_request : Writer.t -> unit -> unit
     val startup_message : Writer.t -> StartupMessage.t -> unit
+    val cancel_request_message : Writer.t -> CancelRequestMessage.t -> unit
     val password_message : Writer.t -> PasswordMessage.t -> unit
     val parse : Writer.t -> Parse.t -> unit
     val bind : Writer.t -> Bind.t -> unit

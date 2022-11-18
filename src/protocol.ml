@@ -151,6 +151,26 @@ module Frontend = struct
     ;;
   end
 
+  module CancelRequestMessage = struct
+    let message_type_char = None
+
+    type t = Types.backend_key
+
+    let validate_exn (_ : t) = ()
+
+    let payload_length (_: t) = 4 * 3
+
+    let fill { Types.pid; secret } iobuf =
+      (*
+         80877102 is the cancel request code magic number
+         https://www.postgresql.org/docs/13/protocol-message-formats.html
+      *)
+      Shared.fill_int32_be iobuf 80877102;
+      Shared.fill_int32_be iobuf pid;
+      Shared.fill_int32_be iobuf secret;
+    ;;
+  end
+
   module PasswordMessage = struct
     let message_type_char = Some 'p'
 
@@ -426,6 +446,7 @@ module Frontend = struct
 
     let ssl_request = Staged.unstage (write_message (module SSLRequest))
     let startup_message = Staged.unstage (write_message (module StartupMessage))
+    let cancel_request_message = Staged.unstage (write_message (module CancelRequestMessage))
     let password_message = Staged.unstage (write_message (module PasswordMessage))
     let parse = Staged.unstage (write_message (module Parse))
     let bind = Staged.unstage (write_message (module Bind))

@@ -995,6 +995,60 @@ module Expert = struct
             return (Ok t)))
   ;;
 
+  let cancel
+        t
+        ?(interrupt = Deferred.never ())
+        ?(ssl_mode = Ssl_mode.Disable)
+        ?server
+        ()
+    =
+    match (Set_once.get t.backend_key) with
+    | None -> return (Error (Pgasync_error.of_string "connection not set up"))
+    | Some {pid; secret} ->
+      let (Where_to_connect server) =
+        match server with
+        | Some x -> Where_to_connect x
+        | None -> force default_where_to_connect
+      in
+      (match%bind connect_tcp_and_maybe_start_ssl ~interrupt ~ssl_mode server with
+       | Error error -> return (Error (Pgasync_error.of_error error))
+       | Ok (conn, writer_failed) ->
+         upon writer_failed (fun exn ->
+           failed
+             conn
+             (Pgasync_error.create_s
+                [%message "Writer failed asynchronously" (exn : Exn.t)]));
+         let cancel_failed err =
+           failed t err;
+           return (Error err)
+         in
+
+         catch_write_errors conn ~flush_message:Not_required ~f:(fun writer ->
+           Protocol.Frontend.Writer.cancel_request_message writer { pid; secret });
+
+         let cancel_result = (
+           let%bind res = Reader.read_line conn.reader in
+           match res with
+           | `Eof -> return (Ok ())
+           | `Ok s -> cancel_failed (Pgasync_error.of_string ("unexpected data in reader " ^ s))
+         ) in
+
+         (match%bind
+            choose
+              [ choice interrupt (fun () -> `Interrupt)
+              ; choice cancel_result (fun l -> `Result l)
+              ]
+          with
+          | `Interrupt ->
+             let%bind _ = close conn in
+             cancel_failed (Pgasync_error.of_string "interrupted")
+          | `Result res ->
+             let%bind _ = close conn in
+             return res;
+         ))
+  ;;
+
+
   let with_connection
         ?interrupt
         ?ssl_mode
@@ -1840,6 +1894,11 @@ type t = Expert.t [@@deriving sexp_of]
 
 let connect ?interrupt ?ssl_mode ?server ?user ?password ?gss_krb_token ~database () =
   Expert.connect ?interrupt ?ssl_mode ?server ?user ?password ?gss_krb_token ~database ()
+  >>| Or_pgasync_error.to_or_error
+;;
+
+let cancel t ?interrupt ?ssl_mode ?server () =
+  Expert.cancel t ?interrupt ?ssl_mode ?server ()
   >>| Or_pgasync_error.to_or_error
 ;;
 

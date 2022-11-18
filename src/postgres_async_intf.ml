@@ -32,6 +32,14 @@ module type S = sig
     -> unit
     -> (t, error) Result.t Deferred.t
 
+  val cancel
+    :  t
+    -> ?interrupt:unit Deferred.t
+    -> ?ssl_mode:ssl_mode
+    -> ?server:_ Tcp.Where_to_connect.t
+    -> unit
+    -> (unit, error) Result.t Deferred.t
+
   (** [close] returns an error if there were any problems gracefully tearing down the
       connection. For sure, when it is determined, the connection is gone. *)
   val close : t -> (unit, error) Result.t Deferred.t
